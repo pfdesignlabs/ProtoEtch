@@ -10,6 +10,8 @@
             "includePath": [
                 "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/include",
                 "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/src",
+                "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/.pio/libdeps/esp32dev/DallasTemperature",
+                "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/.pio/libdeps/esp32dev/OneWire",
                 "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                 "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                 "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
@@ -246,6 +248,8 @@
                 "path": [
                     "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/include",
                     "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/src",
+                    "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/.pio/libdeps/esp32dev/DallasTemperature",
+                    "/Users/pfdesignlabs/Documents/Projects/ProtoEtch/.pio/libdeps/esp32dev/OneWire",
                     "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                     "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                     "/Users/pfdesignlabs/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
