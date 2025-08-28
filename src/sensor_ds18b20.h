@@ -4,9 +4,9 @@
 namespace TempSensor {
 
   struct Sample {
-    float     c    = NAN;    // laatste (gecorrigeerde) temperatuur in °C
-    uint32_t  ts   = 0;      // timestamp (millis)
-    bool      valid= false;  // true = waarde betrouwbaar
+    float     c    = NAN;    // last calibrated temperature (°C)
+    uint32_t  ts   = 0;      // millis() timestamp
+    bool      valid= false;  // true if value is trustworthy
   };
 
   enum Error {
@@ -28,25 +28,25 @@ namespace TempSensor {
 
   // Lifecycle
   void begin();
-  void tick();                          // call in loop()
+  void tick();                          // call each loop()
 
-  // Config
+  // Configuration
   void setPeriod(uint32_t ms);          // default TS_DEFAULT_PERIOD_MS
   void setResolution(uint8_t bits);     // 9..12, default TS_RES
-  void setEMA(float alpha);             // 0=uit, bv. 0.2 voor smoothing
+  void setEMA(float alpha);             // 0=off, e.g., 0.2 for smoothing
 
-  // Kalibratie (gain/offset), met NVS helpers
+  // Calibration (gain/offset) with NVS helpers
   void setCalibration(float gain, float offset);
-  void loadCalibration();               // uit NVS ("protoetch")
-  void saveCalibration(float gain, float offset); // naar NVS
+  void loadCalibration();
+  void saveCalibration(float gain, float offset);
 
   // API
-  bool   subscribe(Callback cb);        // max 4 listeners
+  bool   subscribe(Callback cb);        // up to 4 listeners
   Sample latest();                      // cached, non-blocking
-  bool   healthy();                     // recent geldige sample?
+  bool   healthy();                     // recent valid sample?
   Error  lastError();
   Stats  stats();
 
   // Tools
-  void forceSample();                   // asap nieuwe meting starten
+  void forceSample();                   // trigger a new sample asap
 }

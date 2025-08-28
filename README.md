@@ -2,7 +2,7 @@
 title: ProtoEtch
 tags: [protoetch, pcb, etching, hardware, esp32, open-hardware]
 version: v0.2
-updated: 2025-08-27
+updated: 2025-08-28
 license: CERN-OHL-S v2
 ---
 
@@ -15,41 +15,42 @@ license: CERN-OHL-S v2
 
 # 🧪 ProtoEtch
 
-ProtoEtch is built to make PCB etching **simple and consistent**.  
-It automatically stirs and heats the etching solution, shows real-time status on a display, and lets you monitor or adjust remotely.  
-Designed for makers who want repeatable results without constant supervision.
+ProtoEtch is an open-hardware **PCB etching station** that makes etching **simple, repeatable, and safe**.  
+It automatically agitates and heats the etchant, uses a DS18B20 sensor for feedback, and shows live data on a local display. Remote monitoring and control (MQTT, OTA updates) are planned.  
+Designed for makers who want **consistent results** without babysitting their etching tank.
 
 ---
 
 ## ✨ Features
-- Automatic **fluid agitation** with a quiet 24 V BLDC pump (PWM controlled).
-- Controlled **heating** of the etchant with a titanium immersion heater.
-- **DS18B20** sensor feedback for temperature regulation.
-- Local **UI with TFT display + rotary encoder + buttons**.
-- **Safety features**: fuses, polyfuses, grounding, TVS & bulk capacitors.
-- **OTA updates** and **MQTT integration** for remote control/monitoring.
+- Automatic **fluid agitation** with a quiet 24 V BLDC pump (PWM controlled). *(planned)*
+- Controlled **heating** of the etchant with a titanium immersion heater. ✅  
+- **DS18B20** sensor feedback for temperature regulation. ✅  
+- Local **UI with TFT display + rotary encoder + buttons**. *(planned)*  
+- **Safety features**: fuses, grounding, TVS, bulk caps, watchdog cut-offs. *(partially implemented)*  
+- **OTA updates** and **MQTT integration** for remote control/monitoring. *(planned)*  
+- **Open hardware**: CERN-OHL-S v2 for electronics & mechanics, software under permissive license.  
 
 ---
 
 ## 🛠 Hardware Overview
 
 ### Electronics
-- **ESP32-WROOM-32E** (8 MB) as main controller.
-- **ST7789V SPI TFT** display (240×320).
-- Rotary encoder + push, 2 momentary buttons, 1 toggle switch.
-- **Relay module (5 V)** to control 230 V heater.
-- **MOSFET (IRLZ44N)** low-side driver for 24 V pump.
+- **ESP32-WROOM-32E (8 MB)** main controller.  
+- **ST7789V SPI TFT** (240×320).  
+- Rotary encoder + push, 2 momentary buttons, 1 toggle switch.  
+- **Relay module (5 V)** to switch 230 V heater.  
+- **IRLZ44N MOSFET** low-side driver for 24 V pump.  
 
 ### Mechatronics
-- **Pump:** 24 V DC BLDC centrifugal, ~30 W, ~800 L/h, mag-drive (quiet).  
-- **Heater:** Titanium immersion heater (300–500 W).  
-- **Sensor:** DS18B20 waterproof probe.  
-- **Tubing:** Silicone (ID 10 mm, OD 14 mm), barbs, clamps, vibration mounts.
+- **Pump**: 24 V DC BLDC centrifugal, ~30 W, ~800 L/h, mag-drive.  
+- **Heater**: Titanium immersion heater (300–500 W).  
+- **Sensor**: DS18B20 waterproof probe.  
+- **Tubing**: Silicone ID10/OD14 with barbs + clamps, vibration mounts.  
 
 ### Power & Protection
 - **Mean Well LRS-75-24** PSU (24 V / 3.2 A).  
-- Buck converters: LM2596 (5 V + 3.3 V).  
-- Fusing:  
+- Buck converters: LM2596 (5 V & 3.3 V).  
+- Fuses:  
   - AC: T3.15 A slow-blow (main & heater).  
   - DC pump: T2.0 A slow-blow.  
   - 5 V polyfuse (MF-R110), 3.3 V polyfuse (MF-R050).  
@@ -57,15 +58,10 @@ Designed for makers who want repeatable results without constant supervision.
 
 ---
 
-## 📂 Repository Structure
-
-
----
-
 ## 📜 Bill of Materials (BOM)
 
 ### Quick Purchase Checklist
-- [ ] ESP32-WROOM-32E (8MB)  
+- [ ] ESP32-WROOM-32E (8 MB)  
 - [ ] TFT ST7789V SPI (240×320)  
 - [ ] DS18B20 probe (waterproof)  
 - [ ] 24 V BLDC centrifugal pump (~30 W, ~800 L/h)  
@@ -97,31 +93,40 @@ Designed for makers who want repeatable results without constant supervision.
 | Rotary SW       | 22   | Input_pullup |
 | Button1         | 14   | Input_pullup |
 | Button2         | 27   | Input_pullup |
-| DS18B20         | 21   | +4.7kΩ pull-up |
-| Pump MOSFET     | 25   | 100 Ω + 100 kΩ |
+| DS18B20         | 21   | +4.7 kΩ pull-up |
+| Pump MOSFET     | 25   | 100 Ω gate + 100 kΩ pull-down |
 | Heater Relay IN | 26   | Active-LOW |
 
 ---
 
 ## ⚠️ Safety
 
-- ⚡ **Mains (230 V AC)** present: always fuse the heater line and earth bond the enclosure.  
-- ☣ **Chemicals:** Sodium persulfate etchant; corrosive. Use only silicone tubing & titanium heater.  
-- 🔥 **Overheating:** DS18B20 regulates heater; consider thermal cutoff.  
-- 🔌 **Fuses:** see section above for AC/DC protection.  
+- ⚡ **Mains (230 V AC)**: always fuse the heater line and earth bond the enclosure.  
+- ☣ **Chemicals**: Sodium persulfate etchant is corrosive. Use only silicone tubing & titanium heater.  
+- 🔥 **Overheating**: DS18B20 regulates heater; consider thermal cutoff.  
+- 🔌 **Fuses**: see Power & Protection section.  
 
 ---
 
 ## 🚀 Roadmap
 
-- [x] BOM finalized (v2.0)  
 - [x] Repo structure defined  
-- [ ] Schematic → Fusion360 design  
+- [x] BOM finalized (v2.0)  
+- [x] DS18B20 driver (non-blocking, CRC, calibration, stats)  
+- [x] Heater HAL + Controller:
+  - Relay switching
+  - Bang-bang control with hysteresis
+  - Min on/off hold
+  - NVS persistence
+  - Serial CLI for tuning
+- [ ] Pump control module + MOSFET HAL  
+- [ ] Wi-Fi provisioning (captive portal)  
+- [ ] MQTT integration  
+- [ ] OTA updates  
+- [ ] UI firmware (TFT + encoder + buttons)  
 - [ ] PCB layout → prototype board  
-- [ ] Firmware base: UI + pump + heater control  
-- [ ] OTA + MQTT integration  
-- [ ] Enclosure CAD
-- [ ] First full assembly & test  
+- [ ] Enclosure CAD  
+- [ ] Full system assembly & test  
 
 ---
 
@@ -130,14 +135,12 @@ Designed for makers who want repeatable results without constant supervision.
 Contributions welcome!  
 - Fork → branch → pull request.  
 - Follow [CONTRIBUTING.md](./CONTRIBUTING.md).  
-- Please respect CERN-OHL-S v2 for hardware & MIT/Apache for firmware (if dual-licensed later).
+- Please respect CERN-OHL-S v2 for hardware & MIT/Apache for firmware (to be dual-licensed later).
 
 ---
 
 ## 📜 License
 
 - **Hardware**: CERN Open Hardware License v2 – Strongly Reciprocal (CERN-OHL-S v2)  
-- **Software** (firmware): MIT (planned; TBD)  
+- **Firmware**: MIT (planned; TBD)  
 - See [LICENSE](./LICENSE).
-
----
