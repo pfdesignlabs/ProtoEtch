@@ -22,13 +22,12 @@ Designed for makers who want **consistent results** without babysitting their et
 ---
 
 ## ✨ Features
-
-- Automatic **fluid agitation** with a quiet 24 V BLDC pump (PWM controlled).  
-- Controlled **heating** with a titanium immersion heater.  
-- **DS18B20** sensor feedback for reliable temperature regulation.  
-- Local **UI with TFT display + rotary encoder + buttons**.  
-- **Safety**: fuses, grounding, TVS, bulk caps, watchdog cut-offs.  
-- **Firmware roadmap**: OTA updates and MQTT integration for remote use.  
+- Automatic **fluid agitation** with a quiet 24 V BLDC pump (PWM controlled). *(planned)*
+- Controlled **heating** of the etchant with a titanium immersion heater. ✅  
+- **DS18B20** sensor feedback for temperature regulation. ✅  
+- Local **UI with TFT display + rotary encoder + buttons**. *(planned)*  
+- **Safety features**: fuses, grounding, TVS, bulk caps, watchdog cut-offs. *(partially implemented)*  
+- **OTA updates** and **MQTT integration** for remote control/monitoring. *(planned)*  
 - **Open hardware**: CERN-OHL-S v2 for electronics & mechanics, software under permissive license.  
 
 ---
@@ -114,7 +113,12 @@ Designed for makers who want **consistent results** without babysitting their et
 - [x] Repo structure defined  
 - [x] BOM finalized (v2.0)  
 - [x] DS18B20 driver (non-blocking, CRC, calibration, stats)  
-- [ ] Heater control module + relay HAL  
+- [x] Heater HAL + Controller:
+  - Relay switching
+  - Bang-bang control with hysteresis
+  - Min on/off hold
+  - NVS persistence
+  - Serial CLI for tuning
 - [ ] Pump control module + MOSFET HAL  
 - [ ] Wi-Fi provisioning (captive portal)  
 - [ ] MQTT integration  
