@@ -20,18 +20,18 @@ namespace {
   uint8_t   resBits  = TS_RES;
   const uint32_t MAX_TIMEOUT_MS = TS_TIMEOUT_MS;
 
-  // Backoff bij fouten (period << backoffPow)
+  // Backoff on errors (period << backoffPow)
   uint8_t   backoffPow = 0; // 0..TS_MAX_BACKOFF_POW
 
   // Filtering
-  float emaAlpha = 0.0f;    // 0 = smoothing uit
+  float emaAlpha = 0.0f;    // 0 = disabled
   float emaValue = NAN;
 
-  // Kalibratie
+  // Calibration
   float kGain   = 1.0f;
   float kOffset = 0.0f;
 
-  // Resultaat & callbacks
+  // Result & callbacks
   TempSensor::Sample    last{};
   TempSensor::Callback  listeners[4] = {nullptr,nullptr,nullptr,nullptr};
 
@@ -43,29 +43,24 @@ namespace {
     for (auto &cb : listeners) if (cb) cb(s);
   }
 
-  // Plan volgende meetmoment op basis van backoff
   void scheduleNext(uint32_t now, bool ok) {
     if (ok) backoffPow = 0;
     else if (backoffPow < TS_MAX_BACKOFF_POW) backoffPow++;
-
-    const uint32_t delayMs = (ok ? periodMs : (periodMs << backoffPow));
+    const uint32_t delayMs = ok ? periodMs : (periodMs << backoffPow);
     tNext = now + delayMs;
   }
 
-  // Lees & valideer scratchpad + (optioneel) gebruik Dallas helper voor temp
   bool readWithCRC(float &outC) {
     uint8_t sp[9];
     if (!ds.readScratchPad(addr, sp)) {
-      return false; // leesfout
+      return false; // read failure
     }
     uint8_t crc = OneWire::crc8(sp, 8);
     if (crc != sp[8]) {
       return false; // CRC mismatch
     }
-    // We kunnen temp uit scratchpad berekenen, maar DallasTemperature::getTempC
-    // gebruikt eveneens de scratchpad. We hebben de CRC nu al geverifieerd.
-    float t = ds.getTempC(addr);
-    outC = t;
+    // Use Dallas helper; CRC already validated
+    outC = ds.getTempC(addr);
     return true;
   }
 } // namespace
@@ -77,11 +72,11 @@ namespace TempSensor {
     if (ds.getAddress(addr, 0)) {
       hasDev = true;
       ds.setResolution(addr, resBits);
-      ds.setWaitForConversion(false); // non-blocking conversies
+      ds.setWaitForConversion(false); // non-blocking
       loadCalibration();
 
       last = {};
-      tNext = millis();  // direct starten
+      tNext = millis();  // allow immediate first sample
       LOGI("[Temp] DS18B20 ROM=");
       for (uint8_t i=0;i<8;i++) LOGI("%02X", addr[i]);
       LOGI("  %u-bit | gain=%.4f off=%.4f\n", resBits, kGain, kOffset);
@@ -114,14 +109,14 @@ namespace TempSensor {
   }
 
   void loadCalibration() {
-    Preferences p; p.begin("protoetch", true);
+    Preferences p; p.begin(NVS_NS_PROTOETCH, true);
     kGain   = p.getFloat("t_gain", 1.0f);
     kOffset = p.getFloat("t_offs", 0.0f);
     p.end();
   }
 
   void saveCalibration(float gain, float offset) {
-    Preferences p; p.begin("protoetch", false);
+    Preferences p; p.begin(NVS_NS_PROTOETCH, false);
     p.putFloat("t_gain", gain);
     p.putFloat("t_offs", offset);
     p.end();
@@ -138,14 +133,14 @@ namespace TempSensor {
   Sample latest() { return last; }
 
   bool healthy() {
-    // geldig als er in de afgelopen 5*period een valide sample was
+    // valid if we had a valid sample in last 5 periods
     return last.valid && (millis() - last.ts) <= periodMs * 5UL;
   }
 
   Error lastError() { return gErr; }
   Stats stats()     { return gSt;  }
 
-  void forceSample() { tNext = 0; } // asap conversie starten
+  void forceSample() { tNext = 0; }
 
   void tick() {
     if (!hasDev) return;
@@ -154,13 +149,11 @@ namespace TempSensor {
     switch (st) {
 
       case IDLE:
-        if ((int32_t)(now - tNext) >= 0) { // tijd om te meten
-          st = START_CONV;
-        }
+        if ((int32_t)(now - tNext) >= 0) st = START_CONV;
         break;
 
       case START_CONV:
-        ds.requestTemperaturesByAddress(addr); // start conversie
+        ds.requestTemperaturesByAddress(addr);
         tConv = now;
         st = WAIT_CONV;
         break;
@@ -169,7 +162,6 @@ namespace TempSensor {
         if (ds.isConversionComplete()) {
           st = READ;
         } else if (now - tConv > MAX_TIMEOUT_MS) {
-          // timeout
           last.valid = false; last.ts = now;
           gErr = TIMEOUT; gSt.timeouts++;
           notify(last);
@@ -181,7 +173,6 @@ namespace TempSensor {
       case READ: {
         float tC = NAN;
         if (!readWithCRC(tC)) {
-          // CRC / read fail
           last.valid = false; last.ts = now;
           gErr = CRC_FAIL; gSt.crc++;
           notify(last);
@@ -197,9 +188,7 @@ namespace TempSensor {
             emaValue = emaAlpha * tC + (1.0f - emaAlpha) * emaValue;
             tC = emaValue;
           }
-          // kalibratie
           float tCal = kGain * tC + kOffset;
-
           last.c     = tCal;
           last.ts    = now;
           last.valid = true;
@@ -216,6 +205,6 @@ namespace TempSensor {
         st = IDLE;
         break;
       }
-    } // switch
+    }
   }
-} // namespace TempSensor
+}
