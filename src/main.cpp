@@ -1,31 +1,48 @@
 #include <Arduino.h>
 #include "config.h"
 #include "sensor_ds18b20.h"
+#include "heater_controller.h"
+#include "ui/display_ui.h"
 
-// If you are not using the display in this test, you can omit display headers.
-// Keep it super small and just print to Serial.
+/*
+  Minimal integration loop:
+  - Reads DS18B20 non-blocking
+  - Feeds heater controller (bang-bang w/ hysteresis & hold times)
+  - Renders values on TFT_eSPI UI
+*/
 
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n[ProtoEtch] TempSensor minimal bring-up");
+
+  LOGI("\n[ProtoEtch] Booting...\n");
 
   TempSensor::begin();
-  TempSensor::setPeriodMs(1000);
-  TempSensor::setEMA(0.25f);
+  HeaterCtl::begin();
+  DisplayUI::begin();
+
+  // Example: adjust defaults at runtime if desired
+  // HeaterCtl::setSetpoint(45.0f);
+  // HeaterCtl::setHysteresis(0.8f);
 }
 
 void loop() {
-  TempSensor::poll();
+  // 1) Update sensor state machine
+  TempSensor::update();
 
-  static uint32_t t0 = 0;
-  if (millis() - t0 >= 1000) {
-    t0 = millis();
-    auto s = TempSensor::latest();
-    if (s.ok) {
-      Serial.printf("[Temp] %0.2f C (age %lums)\n", s.valueC, s.ageMs);
-    } else {
-      Serial.println("[Temp] read failed or not ready");
-    }
+  // 2) Consume sensor value
+  const float tC = TempSensor::latestC();
+  HeaterCtl::tick(tC);
+
+  // 3) UI refresh (simple timed refresh)
+  static uint32_t lastUi = 0;
+  const uint32_t now = millis();
+  if (now - lastUi >= 250) {
+    DisplayUI::update(
+      tC,
+      HeaterCtl::getSetpointC(),
+      HeaterCtl::relayState()
+    );
+    lastUi = now;
   }
 }

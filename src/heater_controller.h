@@ -1,39 +1,29 @@
 #pragma once
 #include <Arduino.h>
 
-// Simple bang-bang controller with hysteresis + min on/off hold
 namespace HeaterCtl {
 
-  // Lifecycle
-  void begin();                  // configures pin & forces relay OFF
-  void tick(float currentTempC); // run control loop once (call often)
+/** Configure relay pin and default params (OFF at boot). */
+void begin();
 
-  // Aliases for convenience/back-compat
-  inline void update(float c) { tick(c); }
+/** Set target temperature (°C). Clamped to a safe range. */
+void setSetpoint(float c);
 
-  // Enable/disable
-  void setEnabled(bool en);
-  bool enabled();
+/** Set total hysteresis band (°C), e.g. 0.8 → ±0.4 around setpoint. */
+void setHysteresis(float c);
 
-  // Relay state readback
-  bool isOn();
+/** Read back current configuration. */
+float getSetpointC();
+float getHysteresisC();
 
-  // Setpoint / hysteresis
-  void setSetpoint(float c);
-  float getSetpoint();
-  // Back-compat helper (same as getSetpoint())
-  inline float getSetpointC() { return getSetpoint(); }
+/** Arm/disarm the controller output. Disabling forces relay OFF (with min-off hold). */
+void enable(bool en);
+bool enabled();
 
-  void setHysteresis(float c);
-  float getHysteresis();
+/** Feed the current temperature (°C). NAN is treated as fault → relay OFF. */
+void tick(float currentTempC);
 
-  // Safety limits
-  void setMaxTemp(float c);
-  float getMaxTemp();
+/** Current relay state (true = ON). */
+bool relayState();
 
-  // Minimum hold times (ms) to protect relay
-  void setMinOnMs(uint32_t ms);
-  void setMinOffMs(uint32_t ms);
-  uint32_t getMinOnMs();
-  uint32_t getMinOffMs();
-}
+} // namespace HeaterCtl

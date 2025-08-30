@@ -1,102 +1,71 @@
 #include "sensor_ds18b20.h"
 #include "config.h"
+
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 namespace {
-  OneWire oneWire(TS_PIN);
-  DallasTemperature dallas(&oneWire);
-  DeviceAddress rom{};
+  OneWire           ow(TS_PIN);
+  DallasTemperature dt(&ow);
+  DeviceAddress     rom{};
+  bool              hasDevice = false;
 
-  // Config
-  uint32_t periodMs = TS_DEFAULT_PERIOD_MS;
-  float emaAlpha = 0.25f;
-  float calGain  = 1.0f;
-  float calOffs  = 0.0f;
+  uint32_t  lastKickMs = 0;
+  bool      waiting    = false;
+  float     lastC      = NAN;
 
-  // State
-  enum Phase { IDLE, CONVERTING } phase = IDLE;
-  uint32_t lastKick = 0;
-  uint32_t convertStart = 0;
-
-  TempSensor::Sample smp;  // filtered sample
-  bool haveDevice = false;
-
-  inline bool conversionReady() { return dallas.isConversionComplete(); }
-
-  void startConversion() {
-    dallas.requestTemperaturesByAddress(rom);
-    convertStart = millis();
-    phase = CONVERTING;
+  void kickConversion() {
+    if (!hasDevice) return;
+    dt.requestTemperaturesByAddress(rom);
+    waiting   = true;
+    lastKickMs= millis();
   }
-
-  void finishConversion() {
-    float t = dallas.getTempC(rom);
-    bool ok = (t != DEVICE_DISCONNECTED_C) && t > -55.0f && t < 125.0f && !isnan(t);
-    if (ok) {
-      t = calGain * t + calOffs;
-      if (isnan(smp.valueC)) smp.valueC = t;                  // seed
-      smp.valueC = emaAlpha * t + (1.0f - emaAlpha) * smp.valueC;
-      smp.ok = true;
-      smp.ageMs = 0;
-    } else {
-      smp.ok = false; // keep last value, only age
-    }
-    phase = IDLE;
-  }
-} // anon
+}
 
 namespace TempSensor {
 
 void begin() {
-  dallas.begin();
-  if (dallas.getAddress(rom, 0)) {
-    haveDevice = true;
-    dallas.setResolution(rom, TS_RES);
-    dallas.setWaitForConversion(false); // non-blocking
+  dt.begin();
+  dt.setWaitForConversion(false); // non-blocking
+  if (dt.getAddress(rom, 0)) {
+    hasDevice = true;
+    dt.setResolution(rom, TS_RES);
     LOGI("[Temp] DS18B20 found, res=%d-bit\n", TS_RES);
+    kickConversion();
   } else {
-    haveDevice = false;
-    LOGW("[Temp] No DS18B20 detected on pin %d\n", TS_PIN);
+    hasDevice = false;
+    LOGW("[Temp] No DS18B20 found on pin %d\n", TS_PIN);
   }
-  smp = {}; // reset to defaults
 }
 
-void poll() {
+void update() {
   const uint32_t now = millis();
+  if (!hasDevice) return;
 
-  // Age sample while idle
-  if (phase == IDLE && smp.ageMs < 0xFFFFFFFFu) {
-    uint32_t dt = now - lastKick;
-    smp.ageMs = (dt > smp.ageMs) ? dt : smp.ageMs + dt; // simple aging
-  }
-
-  if (!haveDevice) return;
-
-  switch (phase) {
-    case IDLE:
-      if (now - lastKick >= periodMs) {
-        lastKick = now;
-        startConversion();
+  // If waiting, check if conversion completed or timed out
+  if (waiting) {
+    if (dt.isConversionComplete()) {
+      float t = dt.getTempC(rom);
+      if (t != DEVICE_DISCONNECTED_C && t > -55.0f && t < 125.0f) {
+        lastC = t;
+      } else {
+        lastC = NAN;
       }
-      break;
-
-    case CONVERTING: {
-      const uint32_t elapsed = now - convertStart;
-      if (conversionReady()) {
-        finishConversion();
-      } else if (elapsed > TS_TIMEOUT_MS) {
-        LOGW("[Temp] Conversion timeout (%lums)\n", elapsed);
-        phase = IDLE; // retry next cycle
-      }
-    } break;
+      waiting = false;
+      // schedule next kick after period
+      if (now - lastKickMs >= TS_DEFAULT_PERIOD_MS) kickConversion();
+    } else if (now - lastKickMs > TS_TIMEOUT_MS) {
+      LOGW("[Temp] Conversion timeout\n");
+      waiting = false;
+      // Try again next cycle
+    }
+  } else {
+    // Not waiting: time to start next conversion?
+    if (now - lastKickMs >= TS_DEFAULT_PERIOD_MS) kickConversion();
   }
 }
 
-Sample latest() { return smp; }
-
-void setPeriodMs(uint32_t ms) { periodMs = ms < 100 ? 100 : ms; }
-void setEMA(float a)          { emaAlpha = constrain(a, 0.0f, 1.0f); }
-void setCalibration(float g, float o) { calGain = g; calOffs = o; }
+float latestC()   { return lastC; }
+bool  healthy()   { return !isnan(lastC); }
 
 } // namespace TempSensor

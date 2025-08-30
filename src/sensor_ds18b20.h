@@ -3,19 +3,16 @@
 
 namespace TempSensor {
 
-struct Sample {
-  float     valueC = NAN;  // filtered temperature (°C)
-  uint32_t  ageMs  = 0;    // ms since last successful update
-  bool      ok     = false;
-};
+/** Initialise OneWire + DallasTemperature, non-blocking mode. */
+void begin();
 
-void begin();                   // init the 1-Wire & Dallas device
-void poll();                    // call frequently (non-blocking state machine)
-Sample latest();                // last filtered sample
+/** Call periodically (e.g. every loop). Triggers conversions at TS_DEFAULT_PERIOD_MS. */
+void update();
 
-// Optional tuning
-void setPeriodMs(uint32_t ms);  // default TS_DEFAULT_PERIOD_MS
-void setEMA(float alpha);       // 0..1 (0=no smoothing, 1=all smoothing)
-void setCalibration(float gain, float offset); // y = gain*x + offset
+/** Latest temperature in °C, or NAN if not available yet. */
+float latestC();
 
-} // namespace
+/** True if we have seen at least one valid reading. */
+bool healthy();
+
+} // namespace TempSensor
