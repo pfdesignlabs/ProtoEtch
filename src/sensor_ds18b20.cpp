@@ -1,210 +1,102 @@
+#include "sensor_ds18b20.h"
+#include "config.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <Preferences.h>
-#include "config.h"
-#include "sensor_ds18b20.h"
 
 namespace {
-  // Hardware & Dallas
-  OneWire           oneWire(TS_PIN);
-  DallasTemperature ds(&oneWire);
-  DeviceAddress     addr{};
-  bool              hasDev = false;
+  OneWire oneWire(TS_PIN);
+  DallasTemperature dallas(&oneWire);
+  DeviceAddress rom{};
 
-  // State & timing
-  enum State { IDLE, START_CONV, WAIT_CONV, READ };
-  State     st       = IDLE;
-  uint32_t  periodMs = TS_DEFAULT_PERIOD_MS;
-  uint32_t  tNext    = 0;
-  uint32_t  tConv    = 0;
-  uint8_t   resBits  = TS_RES;
-  const uint32_t MAX_TIMEOUT_MS = TS_TIMEOUT_MS;
+  // Config
+  uint32_t periodMs = TS_DEFAULT_PERIOD_MS;
+  float emaAlpha = 0.25f;
+  float calGain  = 1.0f;
+  float calOffs  = 0.0f;
 
-  // Backoff on errors (period << backoffPow)
-  uint8_t   backoffPow = 0; // 0..TS_MAX_BACKOFF_POW
+  // State
+  enum Phase { IDLE, CONVERTING } phase = IDLE;
+  uint32_t lastKick = 0;
+  uint32_t convertStart = 0;
 
-  // Filtering
-  float emaAlpha = 0.0f;    // 0 = disabled
-  float emaValue = NAN;
+  TempSensor::Sample smp;  // filtered sample
+  bool haveDevice = false;
 
-  // Calibration
-  float kGain   = 1.0f;
-  float kOffset = 0.0f;
+  inline bool conversionReady() { return dallas.isConversionComplete(); }
 
-  // Result & callbacks
-  TempSensor::Sample    last{};
-  TempSensor::Callback  listeners[4] = {nullptr,nullptr,nullptr,nullptr};
-
-  // Errors & stats
-  TempSensor::Error gErr = TempSensor::OK;
-  TempSensor::Stats gSt;
-
-  void notify(const TempSensor::Sample& s) {
-    for (auto &cb : listeners) if (cb) cb(s);
+  void startConversion() {
+    dallas.requestTemperaturesByAddress(rom);
+    convertStart = millis();
+    phase = CONVERTING;
   }
 
-  void scheduleNext(uint32_t now, bool ok) {
-    if (ok) backoffPow = 0;
-    else if (backoffPow < TS_MAX_BACKOFF_POW) backoffPow++;
-    const uint32_t delayMs = ok ? periodMs : (periodMs << backoffPow);
-    tNext = now + delayMs;
-  }
-
-  bool readWithCRC(float &outC) {
-    uint8_t sp[9];
-    if (!ds.readScratchPad(addr, sp)) {
-      return false; // read failure
+  void finishConversion() {
+    float t = dallas.getTempC(rom);
+    bool ok = (t != DEVICE_DISCONNECTED_C) && t > -55.0f && t < 125.0f && !isnan(t);
+    if (ok) {
+      t = calGain * t + calOffs;
+      if (isnan(smp.valueC)) smp.valueC = t;                  // seed
+      smp.valueC = emaAlpha * t + (1.0f - emaAlpha) * smp.valueC;
+      smp.ok = true;
+      smp.ageMs = 0;
+    } else {
+      smp.ok = false; // keep last value, only age
     }
-    uint8_t crc = OneWire::crc8(sp, 8);
-    if (crc != sp[8]) {
-      return false; // CRC mismatch
-    }
-    // Use Dallas helper; CRC already validated
-    outC = ds.getTempC(addr);
-    return true;
+    phase = IDLE;
   }
-} // namespace
+} // anon
 
 namespace TempSensor {
 
-  void begin() {
-    ds.begin();
-    if (ds.getAddress(addr, 0)) {
-      hasDev = true;
-      ds.setResolution(addr, resBits);
-      ds.setWaitForConversion(false); // non-blocking
-      loadCalibration();
+void begin() {
+  dallas.begin();
+  if (dallas.getAddress(rom, 0)) {
+    haveDevice = true;
+    dallas.setResolution(rom, TS_RES);
+    dallas.setWaitForConversion(false); // non-blocking
+    LOGI("[Temp] DS18B20 found, res=%d-bit\n", TS_RES);
+  } else {
+    haveDevice = false;
+    LOGW("[Temp] No DS18B20 detected on pin %d\n", TS_PIN);
+  }
+  smp = {}; // reset to defaults
+}
 
-      last = {};
-      tNext = millis();  // allow immediate first sample
-      LOGI("[Temp] DS18B20 ROM=");
-      for (uint8_t i=0;i<8;i++) LOGI("%02X", addr[i]);
-      LOGI("  %u-bit | gain=%.4f off=%.4f\n", resBits, kGain, kOffset);
-    } else {
-      hasDev = false;
-      gErr = NO_DEVICE;
-      LOGW("[Temp] No DS18B20 detected on pin %d\n", TS_PIN);
-    }
+void poll() {
+  const uint32_t now = millis();
+
+  // Age sample while idle
+  if (phase == IDLE && smp.ageMs < 0xFFFFFFFFu) {
+    uint32_t dt = now - lastKick;
+    smp.ageMs = (dt > smp.ageMs) ? dt : smp.ageMs + dt; // simple aging
   }
 
-  void setPeriod(uint32_t ms) {
-    if (ms < 100) ms = 100;
-    periodMs = ms;
-  }
+  if (!haveDevice) return;
 
-  void setResolution(uint8_t bits) {
-    if (bits < 9) bits = 9; if (bits > 12) bits = 12;
-    resBits = bits;
-    if (hasDev) ds.setResolution(addr, resBits);
-  }
-
-  void setEMA(float alpha) {
-    if (alpha < 0.0f) alpha = 0.0f;
-    if (alpha > 1.0f) alpha = 1.0f;
-    emaAlpha = alpha;
-  }
-
-  void setCalibration(float gain, float offset) {
-    kGain = gain; kOffset = offset;
-  }
-
-  void loadCalibration() {
-    Preferences p; p.begin(NVS_NS_PROTOETCH, true);
-    kGain   = p.getFloat("t_gain", 1.0f);
-    kOffset = p.getFloat("t_offs", 0.0f);
-    p.end();
-  }
-
-  void saveCalibration(float gain, float offset) {
-    Preferences p; p.begin(NVS_NS_PROTOETCH, false);
-    p.putFloat("t_gain", gain);
-    p.putFloat("t_offs", offset);
-    p.end();
-    kGain = gain; kOffset = offset;
-  }
-
-  bool subscribe(Callback cb) {
-    for (auto &slot : listeners) {
-      if (slot == nullptr) { slot = cb; return true; }
-    }
-    return false;
-  }
-
-  Sample latest() { return last; }
-
-  bool healthy() {
-    // valid if we had a valid sample in last 5 periods
-    return last.valid && (millis() - last.ts) <= periodMs * 5UL;
-  }
-
-  Error lastError() { return gErr; }
-  Stats stats()     { return gSt;  }
-
-  void forceSample() { tNext = 0; }
-
-  void tick() {
-    if (!hasDev) return;
-
-    const uint32_t now = millis();
-    switch (st) {
-
-      case IDLE:
-        if ((int32_t)(now - tNext) >= 0) st = START_CONV;
-        break;
-
-      case START_CONV:
-        ds.requestTemperaturesByAddress(addr);
-        tConv = now;
-        st = WAIT_CONV;
-        break;
-
-      case WAIT_CONV:
-        if (ds.isConversionComplete()) {
-          st = READ;
-        } else if (now - tConv > MAX_TIMEOUT_MS) {
-          last.valid = false; last.ts = now;
-          gErr = TIMEOUT; gSt.timeouts++;
-          notify(last);
-          scheduleNext(now, /*ok=*/false);
-          st = IDLE;
-        }
-        break;
-
-      case READ: {
-        float tC = NAN;
-        if (!readWithCRC(tC)) {
-          last.valid = false; last.ts = now;
-          gErr = CRC_FAIL; gSt.crc++;
-          notify(last);
-          scheduleNext(now, /*ok=*/false);
-          st = IDLE;
-          break;
-        }
-
-        bool ok = !(tC == DEVICE_DISCONNECTED_C || isnan(tC) || tC < -55.0f || tC > 125.0f);
-        if (ok) {
-          if (emaAlpha > 0.0f) {
-            if (isnan(emaValue)) emaValue = tC;
-            emaValue = emaAlpha * tC + (1.0f - emaAlpha) * emaValue;
-            tC = emaValue;
-          }
-          float tCal = kGain * tC + kOffset;
-          last.c     = tCal;
-          last.ts    = now;
-          last.valid = true;
-          gErr       = OK;
-          gSt.ok++;
-          notify(last);
-          scheduleNext(now, /*ok=*/true);
-        } else {
-          last.valid = false; last.ts = now;
-          gErr = RANGE_FAIL; gSt.range++;
-          notify(last);
-          scheduleNext(now, /*ok=*/false);
-        }
-        st = IDLE;
-        break;
+  switch (phase) {
+    case IDLE:
+      if (now - lastKick >= periodMs) {
+        lastKick = now;
+        startConversion();
       }
-    }
+      break;
+
+    case CONVERTING: {
+      const uint32_t elapsed = now - convertStart;
+      if (conversionReady()) {
+        finishConversion();
+      } else if (elapsed > TS_TIMEOUT_MS) {
+        LOGW("[Temp] Conversion timeout (%lums)\n", elapsed);
+        phase = IDLE; // retry next cycle
+      }
+    } break;
   }
 }
+
+Sample latest() { return smp; }
+
+void setPeriodMs(uint32_t ms) { periodMs = ms < 100 ? 100 : ms; }
+void setEMA(float a)          { emaAlpha = constrain(a, 0.0f, 1.0f); }
+void setCalibration(float g, float o) { calGain = g; calOffs = o; }
+
+} // namespace TempSensor

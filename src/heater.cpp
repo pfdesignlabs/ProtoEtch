@@ -1,27 +1,29 @@
-#include "config.h"
 #include "heater.h"
 
-namespace { bool state = false; }
+namespace {
+  uint8_t g_pin        = 255;
+  bool    g_activeHigh = true;
+  bool    g_isOn       = false;
+  bool    g_inited     = false;
+}
 
-namespace Heater {
+void Heater::begin(uint8_t pin, bool activeHigh) {
+  g_pin        = pin;
+  g_activeHigh = activeHigh;
+  pinMode(g_pin, OUTPUT);
+  // Default OFF
+  g_isOn = false;
+  digitalWrite(g_pin, g_activeHigh ? LOW : HIGH);
+  g_inited = true;
+}
 
-  void begin() {
-    pinMode(PIN_HEATER_RELAY, OUTPUT);
-    digitalWrite(PIN_HEATER_RELAY, HEATER_RELAY_OFF); // safe on boot
-    state = false;
-  }
+void Heater::command(bool on) {
+  if (!g_inited) return;
+  g_isOn = on;
+  digitalWrite(g_pin, g_activeHigh ? (on ? HIGH : LOW)
+                                   : (on ? LOW  : HIGH));
+}
 
-  void setEnabled(bool on) {
-    state = on;
-    digitalWrite(PIN_HEATER_RELAY, on ? HEATER_RELAY_ON : HEATER_RELAY_OFF);
-  }
-
-  bool isEnabled() {
-    return state;
-  }
-
-  void emergencyOff() {
-    state = false;
-    digitalWrite(PIN_HEATER_RELAY, HEATER_RELAY_OFF);
-  }
+bool Heater::isOn() {
+  return g_isOn;
 }

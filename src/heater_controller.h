@@ -1,50 +1,39 @@
 #pragma once
 #include <Arduino.h>
 
+// Simple bang-bang controller with hysteresis + min on/off hold
 namespace HeaterCtl {
 
-  enum class Reason : uint8_t {
-    Idle,
-    BelowBand,
-    AboveBand,
-    MinOnHold,
-    MinOffHold,
-    SensorStale,
-    OverTempCutoff,
-    Disabled
-  };
-
-  struct Status {
-    float     setpointC   = 0.0f;
-    float     hysteresisC = 0.5f;
-    float     currentC    = NAN;
-    bool      relayOn     = false;
-    Reason    reason      = Reason::Idle;
-    uint32_t  sinceMs     = 0;
-    // remaining hold times (0 if not applicable)
-    uint32_t  remainMinOnMs  = 0;
-    uint32_t  remainMinOffMs = 0;
-  };
-
   // Lifecycle
-  void begin();
-  void tick();
+  void begin();                  // configures pin & forces relay OFF
+  void tick(float currentTempC); // run control loop once (call often)
 
-  // Runtime config
+  // Aliases for convenience/back-compat
+  inline void update(float c) { tick(c); }
+
+  // Enable/disable
   void setEnabled(bool en);
-  void setSetpoint(float c);     // °C
-  void setHysteresis(float c);   // °C
-  void setMinOnOff(uint32_t minOnMs, uint32_t minOffMs);
-  void setMaxTempCutoff(float c);// °C
+  bool enabled();
 
-  // Persistent settings (NVS)
-  void loadSettingsFromNVS();
-  void saveSettingsToNVS();
-  void setAndSave(float setC, float hystC, bool en);
+  // Relay state readback
+  bool isOn();
 
-  // Inspect
-  Status getStatus();
+  // Setpoint / hysteresis
+  void setSetpoint(float c);
+  float getSetpoint();
+  // Back-compat helper (same as getSetpoint())
+  inline float getSetpointC() { return getSetpoint(); }
 
-  // Optional: tiny Serial CLI to tune at runtime
-  void serialCLI();
+  void setHysteresis(float c);
+  float getHysteresis();
+
+  // Safety limits
+  void setMaxTemp(float c);
+  float getMaxTemp();
+
+  // Minimum hold times (ms) to protect relay
+  void setMinOnMs(uint32_t ms);
+  void setMinOffMs(uint32_t ms);
+  uint32_t getMinOnMs();
+  uint32_t getMinOffMs();
 }

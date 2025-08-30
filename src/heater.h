@@ -2,8 +2,12 @@
 #include <Arduino.h>
 
 namespace Heater {
-  void begin();                // init relay pin (safe OFF)
-  void setEnabled(bool on);    // switch relay
-  bool isEnabled();            // current relay state
-  void emergencyOff();         // hard OFF (failsafe)
+  // Initialize the relay pin and logic level (true = active HIGH, false = active LOW)
+  void begin(uint8_t pin, bool activeHigh);
+
+  // Command relay ON/OFF
+  void command(bool on);
+
+  // Query current relay state as tracked by the HAL
+  bool isOn();
 }
