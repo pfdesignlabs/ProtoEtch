@@ -42,3 +42,4 @@
 .DS_Store
 .pio/*
 .vscode/*
+.vscode/c_cpp_properties.json
