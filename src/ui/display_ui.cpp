@@ -36,7 +36,6 @@ namespace {
     // Agitation block
     int16_t agitHdrY;
     int16_t agitStateY;
-    int16_t agitPowerY;
 
     // Buttons
     int16_t btnY, btnW, btnH, btnX;
@@ -62,7 +61,6 @@ namespace {
     bool     inited       = false;
     bool     heaterOn     = false;
     bool     agitOn       = false;
-    int      agitPct      = -1;
     bool     tempValid    = false;
     int      curTempI     = 0;   // rounded current temp (°C)
     int      setpointI    = 0;   // rounded setpoint (°C)
@@ -142,7 +140,6 @@ namespace {
     // Agitation rows
     ui.agitHdrY     = ui.heaterHdrY + 3*ui.step;
     ui.agitStateY   = ui.agitHdrY + ui.step;
-    ui.agitPowerY   = ui.agitHdrY + 2*ui.step;
 
     // Button (single, centered) absolute afstand tot onderrand: onderkant 2px boven schermrand
     {
@@ -192,7 +189,6 @@ namespace {
     drawTextBold("Agitation", ui.labelX, ui.agitHdrY, COL_SILVER, COL_BG, ui.hdrPx, TL_DATUM);
     useLabelFont();
     drawText("State:", ui.indentX, ui.agitStateY, COL_SILVER, COL_BG, ui.labelPxBig, TL_DATUM);
-    drawText("Power:", ui.indentX, ui.agitPowerY, COL_SILVER, COL_BG, ui.labelPxBig, TL_DATUM);
 
     // No divider above the action area (more breathing room for the button)
 
@@ -293,7 +289,6 @@ void update(float tempC,
             float setpointC,
             bool  heaterOn,
             bool  agitateOn,
-            int   agitatePct,
             uint32_t timeRemainingSec,
             bool  wifiOk,
             bool  mqttOk) {
@@ -329,7 +324,7 @@ void update(float tempC,
     }
   }
 
-  // Agitation block
+  // Agitation block (static power, only state displayed)
   {
     useValueFont();
     // State line – redraw only if changed
@@ -340,15 +335,6 @@ void update(float tempC,
                agitateOn ? COL_ORANGE : COL_SILVER,
                COL_BG, ui.valuePxBig, TR_DATUM);
       cache.agitOn = agitateOn;
-    }
-
-    // Power line – redraw only if changed
-    int pct = agitatePct; if (pct < 0) pct = 0; if (pct > 100) pct = 100;
-    if (!cache.inited || cache.agitPct != pct) {
-      clearValueArea(ui.agitPowerY);
-      char pbuf[16]; snprintf(pbuf, sizeof(pbuf), "%d%%", pct);
-      drawText(pbuf, ui.valueX, ui.agitPowerY, COL_WHITE, COL_BG, ui.valuePxBig, TR_DATUM);
-      cache.agitPct = pct;
     }
   }
 

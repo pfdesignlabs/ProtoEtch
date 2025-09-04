@@ -29,7 +29,6 @@ void update(float tempC,
             float setpointC,
             bool  heaterOn,
             bool  agitateOn = false,
-            int   agitatePct = 0,
             uint32_t timeRemainingSec = 0,
             bool  wifiOk = false,
             bool  mqttOk = false);

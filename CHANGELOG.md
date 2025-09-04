@@ -20,7 +20,7 @@ updated: 2025-08-28
 - Flicker-free updates: dynamic fields redraw only on value change (cached).
 - Clear routines use actual font heights to avoid overdraw artifacts.
 - Removed inner “card” panel; draw on background for more usable space.
-- Simplified header status icons (temporarily removed).
+- Simplified header status icons (temporarily removed). Agitation "Power" UI removed (agitation is static).
 
 ### Fixed
 - Right-edge clipping of values by adding safer right margins.
