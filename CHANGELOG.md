@@ -6,6 +6,29 @@ updated: 2025-08-28
 
 # 📓 ProtoEtch Changelog
 
+## [0.3.0] – 2025-09-03
+
+### Added
+- New TFT UI (feature/tft-display):
+  - Header centered with exact 2 px top margin and 2 px spacing to divider.
+  - Sections: Etch (Time), Heater (State, Temp), Agitation (State, Power).
+  - Run Etch button with precise margins and centered label.
+- FreeFonts integration (TFT_eSPI LOAD_GFXFF=1):
+  - Headers: FreeSansBold 9pt, labels: FreeSans 9pt, values: FreeMonoBold 9pt.
+
+### Changed
+- Flicker-free updates: dynamic fields redraw only on value change (cached).
+- Clear routines use actual font heights to avoid overdraw artifacts.
+- Removed inner “card” panel; draw on background for more usable space.
+- Simplified header status icons (temporarily removed). Agitation "Power" UI removed (agitation is static).
+
+### Fixed
+- Right-edge clipping of values by adding safer right margins.
+- Button text centering (horizontal + vertical) and stray 1 px line under button.
+
+### Developer
+- Added docstrings and inline comments to Display UI code.
+
 ## [0.2.0] – 2025-08-28
 
 ### Added

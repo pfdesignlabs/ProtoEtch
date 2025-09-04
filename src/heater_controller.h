@@ -3,48 +3,27 @@
 
 namespace HeaterCtl {
 
-  enum class Reason : uint8_t {
-    Idle,
-    BelowBand,
-    AboveBand,
-    MinOnHold,
-    MinOffHold,
-    SensorStale,
-    OverTempCutoff,
-    Disabled
-  };
+/** Configure relay pin and default params (OFF at boot). */
+void begin();
 
-  struct Status {
-    float     setpointC   = 0.0f;
-    float     hysteresisC = 0.5f;
-    float     currentC    = NAN;
-    bool      relayOn     = false;
-    Reason    reason      = Reason::Idle;
-    uint32_t  sinceMs     = 0;
-    // remaining hold times (0 if not applicable)
-    uint32_t  remainMinOnMs  = 0;
-    uint32_t  remainMinOffMs = 0;
-  };
+/** Set target temperature (°C). Clamped to a safe range. */
+void setSetpoint(float c);
 
-  // Lifecycle
-  void begin();
-  void tick();
+/** Set total hysteresis band (°C), e.g. 0.8 → ±0.4 around setpoint. */
+void setHysteresis(float c);
 
-  // Runtime config
-  void setEnabled(bool en);
-  void setSetpoint(float c);     // °C
-  void setHysteresis(float c);   // °C
-  void setMinOnOff(uint32_t minOnMs, uint32_t minOffMs);
-  void setMaxTempCutoff(float c);// °C
+/** Read back current configuration. */
+float getSetpointC();
+float getHysteresisC();
 
-  // Persistent settings (NVS)
-  void loadSettingsFromNVS();
-  void saveSettingsToNVS();
-  void setAndSave(float setC, float hystC, bool en);
+/** Arm/disarm the controller output. Disabling forces relay OFF (with min-off hold). */
+void enable(bool en);
+bool enabled();
 
-  // Inspect
-  Status getStatus();
+/** Feed the current temperature (°C). NAN is treated as fault → relay OFF. */
+void tick(float currentTempC);
 
-  // Optional: tiny Serial CLI to tune at runtime
-  void serialCLI();
-}
+/** Current relay state (true = ON). */
+bool relayState();
+
+} // namespace HeaterCtl

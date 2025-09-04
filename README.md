@@ -1,8 +1,8 @@
 ---
 title: ProtoEtch
 tags: [protoetch, pcb, etching, hardware, esp32, open-hardware]
-version: v0.2
-updated: 2025-08-28
+version: v0.3
+updated: 2025-09-03
 license: CERN-OHL-S v2
 ---
 
@@ -25,7 +25,7 @@ Designed for makers who want **consistent results** without babysitting their et
 - Automatic **fluid agitation** with a quiet 24 V BLDC pump (PWM controlled). *(planned)*
 - Controlled **heating** of the etchant with a titanium immersion heater. ✅  
 - **DS18B20** sensor feedback for temperature regulation. ✅  
-- Local **UI with TFT display + rotary encoder + buttons**. *(planned)*  
+- Local **UI with TFT display + rotary encoder + buttons**. ✅  
 - **Safety features**: fuses, grounding, TVS, bulk caps, watchdog cut-offs. *(partially implemented)*  
 - **OTA updates** and **MQTT integration** for remote control/monitoring. *(planned)*  
 - **Open hardware**: CERN-OHL-S v2 for electronics & mechanics, software under permissive license.  
@@ -108,6 +108,17 @@ Designed for makers who want **consistent results** without babysitting their et
 
 ---
 
+## 🖥️ UI Overview (v0.3)
+
+- Header “ProtoEtch” centered; 2 px margin to top and divider.
+- Sections: Etch (Time), Heater (State, Temp), Agitation (State, Power).
+- Fonts (TFT_eSPI FreeFonts):
+  - Headers: FreeSansBold 9pt
+  - Labels: FreeSans 9pt
+  - Values: FreeMonoBold 9pt (monospaced, stable)
+- Flicker-free updates: redraw only when values change.
+- No inner panel; more usable space and better edge margins.
+
 ## 🚀 Roadmap
 
 - [x] Repo structure defined  
@@ -123,7 +134,7 @@ Designed for makers who want **consistent results** without babysitting their et
 - [ ] Wi-Fi provisioning (captive portal)  
 - [ ] MQTT integration  
 - [ ] OTA updates  
-- [ ] UI firmware (TFT + encoder + buttons)  
+- [x] UI firmware (TFT) – v0.3  
 - [ ] PCB layout → prototype board  
 - [ ] Enclosure CAD  
 - [ ] Full system assembly & test  
