@@ -274,6 +274,50 @@ namespace {
 
 namespace DisplayUI {
 
+void splash() {
+  // Black background splash with a fading logo/text
+  tft.fillScreen(TFT_BLACK);
+
+  // Compute positions
+  const int cx = tft.width() / 2;
+  const int cy = tft.height() / 2;
+
+  // Helper: simple geometric logo at left of text
+  auto drawMiniLogo = [&](uint16_t col){
+    // Stylized traces (approximation of provided mark)
+    int x0 = cx - 70; int y0 = cy - 28;
+    // Vertical bar
+    tft.fillRoundRect(x0, y0 - 20, 10, 60, 3, col);
+    // Three descending traces with pads
+    tft.drawLine(x0 + 18, y0 + 0,  x0 + 40, y0 + 0,  col);
+    tft.drawLine(x0 + 18, y0 + 14, x0 + 40, y0 + 14, col);
+    tft.drawLine(x0 + 18, y0 + 28, x0 + 40, y0 + 28, col);
+    tft.fillCircle(x0 + 44, y0 + 0,  3, col);
+    tft.fillCircle(x0 + 44, y0 + 14, 3, col);
+    tft.fillCircle(x0 + 44, y0 + 28, 3, col);
+  };
+
+  // Fade steps from dark gray to white (slower, smoother)
+  useHeaderFont();
+  const char* title = "PROTOETCH";
+  const int steps = 40;      // total fade steps
+  const int stepDelay = 40;  // ms per step
+  for (int step = 0; step <= steps; ++step) {
+    uint8_t v = (uint8_t)((step * 255) / steps);
+    uint16_t col = tft.color565(v, v, v);
+    // Clear frame
+    tft.fillScreen(TFT_BLACK);
+    // Draw logo and title
+    drawMiniLogo(col);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(col, TFT_BLACK);
+    tft.drawString(title, cx + 30, cy);
+    delay(stepDelay);
+  }
+  // Hold splash for 20 seconds before proceeding to main UI
+  delay(20000);
+}
+
 void begin() {
   tft.init();
   tft.setRotation(1); // Landscape 320x240
@@ -282,6 +326,8 @@ void begin() {
   digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
 #endif
   tft.setTextWrap(false);
+  // Splash first, then the main chrome
+  splash();
   drawStatic();
 }
 
