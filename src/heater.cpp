@@ -1,29 +1,24 @@
+// Minimal relay HAL (active-LOW per board design)
+#include <Arduino.h>
 #include "heater.h"
 
 namespace {
-  uint8_t g_pin        = 255;
-  bool    g_activeHigh = true;
-  bool    g_isOn       = false;
-  bool    g_inited     = false;
+  bool g_on = false;
 }
 
-void Heater::begin(uint8_t pin, bool activeHigh) {
-  g_pin        = pin;
-  g_activeHigh = activeHigh;
-  pinMode(g_pin, OUTPUT);
-  // Default OFF
-  g_isOn = false;
-  digitalWrite(g_pin, g_activeHigh ? LOW : HIGH);
-  g_inited = true;
+static inline void writeActiveLow(int pin, bool active) {
+  digitalWrite(pin, active ? LOW : HIGH);
 }
 
-void Heater::command(bool on) {
-  if (!g_inited) return;
-  g_isOn = on;
-  digitalWrite(g_pin, g_activeHigh ? (on ? HIGH : LOW)
-                                   : (on ? LOW  : HIGH));
+void Heater::begin() {
+  pinMode(PIN, OUTPUT);
+  writeActiveLow(PIN, false);
+  g_on = false;
 }
 
-bool Heater::isOn() {
-  return g_isOn;
+void Heater::set(bool on) {
+  writeActiveLow(PIN, on);
+  g_on = on;
 }
+
+bool Heater::get() { return g_on; }

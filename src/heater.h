@@ -1,13 +1,12 @@
 #pragma once
 #include <Arduino.h>
+#include "pump.h"
 
 namespace Heater {
-  // Initialize the relay pin and logic level (true = active HIGH, false = active LOW)
-  void begin(uint8_t pin, bool activeHigh);
+  // Jouw mapping: Heater Relay IN = GPIO26, Active-LOW
+  constexpr int PIN = 26;
 
-  // Command relay ON/OFF
-  void command(bool on);
-
-  // Query current relay state as tracked by the HAL
-  bool isOn();
+  void begin();
+  void set(bool on);  // on=true -> relais aantrekken (active-LOW)
+  bool get();
 }
