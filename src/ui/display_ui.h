@@ -3,6 +3,9 @@
 
 namespace DisplayUI {
 
+/** Draw a splash screen with a fading ProtoEtch logo, then return. */
+void splash();
+
 /**
  * Initialize the TFT_eSPI display and draw all static UI chrome.
  * - Sets rotation to landscape (320x240 assumed via build flags).
